@@ -212,20 +212,14 @@ class WeatherClassifier:
             self.pytorch_model.eval()
             logger.info("PyTorch model loaded (TTA enabled).")
 
-        # Get label mapping from processor config
-        self.id2label = self.processor.image_processor.__dict__.get(
-            'id2label',
-            {0: "cloudy/overcast", 1: "foggy/hazy", 2: "rain/storm", 3: "snow/frosty", 4: "sun/clear"}
-        )
-        # If processor doesn't have id2label, use known mapping
-        if not self.id2label or len(self.id2label) == 0:
-            self.id2label = {
-                0: "cloudy/overcast",
-                1: "foggy/hazy",
-                2: "rain/storm",
-                3: "snow/frosty",
-                4: "sun/clear",
-            }
+        # Known label mapping (fixed for this model)
+        self.id2label = {
+            0: "cloudy/overcast",
+            1: "foggy/hazy",
+            2: "rain/storm",
+            3: "snow/frosty",
+            4: "sun/clear",
+        }
 
     def _run_inference(self, image: Image.Image) -> np.ndarray:
         """Run inference on a single image, using ONNX or PyTorch.
