@@ -11,8 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
 COPY pyproject.toml uv.lock ./
 COPY classifier/pyproject.toml classifier/pyproject.toml
 
-# Sync dependencies using uv (workspace includes bot + classifier)
-RUN uv sync --frozen
+# Sync dependencies — no dev deps, CPU-only torch
+RUN uv sync --frozen --no-dev && \
+    # Replace CUDA torch with CPU-only version
+    uv pip install torch==2.11.0+cpu torchvision==0.26.0+cpu \
+        --index-url https://download.pytorch.org/whl/cpu
 
 # Copy the rest of the code
 COPY bot/ bot/

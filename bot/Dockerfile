@@ -9,8 +9,8 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 COPY bot/pyproject.toml bot/pyproject.toml
 
-# Sync dependencies using uv (workspace includes bot + classifier)
-RUN uv sync --frozen
+# Sync dependencies — no dev deps
+RUN uv sync --frozen --no-dev
 
 # Copy the rest of the code
 COPY bot/ bot/
