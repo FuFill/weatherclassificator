@@ -78,7 +78,7 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
             )
         except llm.LLMError as e:
             logger.warning("LLM unavailable, using fallback: %s", e)
-            recommendation = _rule_based_advice.get(
+            recommendation = _RULE_BASED_ADVICE.get(
                 weather_type,
                 f"Погода: {weather_type}. Одевайтесь по погоде!",
             )
