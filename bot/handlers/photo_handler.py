@@ -114,7 +114,7 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
         # Try to give rule-based advice even if things fail
         if result:
             weather_type = result.get("weather_type", "unknown")
-            advice = _rule_based_advice.get(
+            advice = _RULE_BASED_ADVICE.get(
                 weather_type, "Одевайтесь по погоде и не забудьте зонтик!"
             )
             return f"⚠️ Обработка с ошибкой, но вот совет:\n\n{advice}"
