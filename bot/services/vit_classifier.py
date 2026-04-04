@@ -4,7 +4,6 @@ Sends images to the classifier microservice and receives
 weather type predictions.
 """
 
-import io
 import logging
 
 import httpx
@@ -39,7 +38,7 @@ async def classify_image(image_bytes: bytes, filename: str = "photo.jpg") -> dic
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             files = {
-                "photo": (filename, io.BytesIO(image_bytes), "image/jpeg"),
+                "photo": (filename, image_bytes, "image/jpeg"),
             }
             response = await client.post(url, files=files)
             response.raise_for_status()
