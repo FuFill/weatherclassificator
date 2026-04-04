@@ -120,10 +120,10 @@ def _build_fallback_response(result: dict) -> str:
         details.append("цвета блёклые и серые — тусклое освещение или плотная облачность")
 
     # Pick varied option based on hash of visual features (deterministic but varied)
-    seed = int(b_val * 100 + warmth * 1000 + sat * 500) % 3
     options = _DETAILED_ADVICE.get(weather_type, [
         "Одевайтесь по погоде — куртка, удобная обувь, зонт на всякий случай."
     ])
+    seed = int(b_val * 100 + warmth * 1000 + sat * 500) % len(options)
     advice = options[seed]
 
     detail_str = ". ".join(details).capitalize()
