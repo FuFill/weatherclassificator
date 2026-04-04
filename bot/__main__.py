@@ -16,13 +16,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from aiogram import Bot, Dispatcher, F, Router
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.filters import Command
 
 from bot.config import settings
 from bot.handlers.health import handle_health, handle_health_async
 from bot.handlers.help import handle_help
 from bot.handlers.photo_handler import handle_photo_async, handle_photo
 from bot.handlers.start import handle_start
+from bot.handlers.weather_info import WEATHER_INFO
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,18 +39,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def route_message(text: str) -> str:
-    """Route a text message to the appropriate handler.
-
-    This is the core routing function — it maps commands to handlers
-    without any Telegram dependency. Same function works in --test mode
-    and in the real Telegram dispatcher.
-    """
+    """Route a text message to the appropriate handler."""
     if text == "/start":
         return handle_start()
     if text == "/help":
         return handle_help()
     if text == "/health":
         return handle_health()
+    if text == "/weather":
+        lines = ["🌤️ **Типы погоды и рекомендации:**\n"]
+        for wt, info in WEATHER_INFO.items():
+            lines.append(f"{info['emoji']} **{info['name']}** — {info['advice']}")
+        return "\n\n".join(lines)
     if text == "/photo" or text.startswith("/photo "):
         return handle_photo()
     return (
@@ -74,18 +76,62 @@ async def run_telegram_bot() -> None:
     dp = Dispatcher()
     router = Router()
 
-    @router.message(F.text == "/start")
+    @router.message(Command("start"))
     async def cmd_start(message: Message) -> None:
-        await message.answer(handle_start())
+        text = handle_start()
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="☀️ Солнечно", callback_data="weather_sunny"),
+                InlineKeyboardButton(text="☁️ Облачно", callback_data="weather_cloudy"),
+            ],
+            [
+                InlineKeyboardButton(text="🌧️ Дождь", callback_data="weather_rainy"),
+                InlineKeyboardButton(text="❄️ Снег", callback_data="weather_snowy"),
+            ],
+            [
+                InlineKeyboardButton(text="🌫️ Туман", callback_data="weather_foggy"),
+                InlineKeyboardButton(text="🌙 Ночь", callback_data="weather_night"),
+            ],
+            [
+                InlineKeyboardButton(text="📋 Все типы погоды", callback_data="weather_all"),
+            ],
+        ])
+        await message.answer(text, reply_markup=keyboard)
 
-    @router.message(F.text == "/help")
+    @router.message(Command("help"))
     async def cmd_help(message: Message) -> None:
         await message.answer(handle_help())
 
-    @router.message(F.text == "/health")
+    @router.message(Command("health"))
     async def cmd_health(message: Message) -> None:
         result = await handle_health_async()
         await message.answer(result)
+
+    @router.message(Command("weather"))
+    async def cmd_weather(message: Message) -> None:
+        """Show all weather types and their advice."""
+        lines = ["🌤️ **Типы погоды и рекомендации:**\n"]
+        for wt, info in WEATHER_INFO.items():
+            lines.append(f"{info['emoji']} **{info['name']}** — {info['advice']}")
+        await message.answer("\n\n".join(lines))
+
+    @router.callback_query(F.data.startswith("weather_"))
+    async def on_weather_callback(callback: CallbackQuery) -> None:
+        """Handle inline keyboard weather button clicks."""
+        weather_type = callback.data.replace("weather_", "")
+
+        if weather_type == "all":
+            lines = ["🌤️ **Все типы погоды:**\n"]
+            for wt, info in WEATHER_INFO.items():
+                lines.append(f"{info['emoji']} **{info['name']}** — {info['advice']}")
+            await callback.message.edit_text("\n\n".join(lines))
+        elif weather_type in WEATHER_INFO:
+            info = WEATHER_INFO[weather_type]
+            await callback.message.edit_text(
+                f"{info['emoji']} **{info['name']}**\n\n{info['advice']}"
+            )
+        else:
+            await callback.answer("Неизвестный тип погоды", show_alert=True)
 
     @router.message(F.photo)
     async def on_photo(message: Message) -> None:
