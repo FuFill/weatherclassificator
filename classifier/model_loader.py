@@ -37,6 +37,7 @@ WEATHER_DISPLAY = {
     "sun/clear": "sunny",
     "cloudy/overcast": "cloudy",
     "rain/storm": "rainy",
+    "rain/strom": "rainy",       # Typo in model's label
     "snow/frosty": "snowy",
     "foggy/hazy": "foggy",
 }
