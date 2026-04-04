@@ -25,7 +25,7 @@ from bot.handlers.help import handle_help
 from bot.handlers.photo_handler import handle_photo_async, handle_photo
 from bot.handlers.start import handle_start
 from bot.handlers.weather_info import WEATHER_INFO
-from bot.services.keyboard import get_weather_keyboard, handle_weather_callback
+from bot.services.keyboard import get_weather_keyboard
 
 
 def parse_args() -> argparse.Namespace:
@@ -103,21 +103,22 @@ async def run_telegram_bot() -> None:
     async def on_weather_callback(callback: CallbackQuery) -> None:
         """Handle inline keyboard weather button clicks.
 
-        Sends a new message with the advice + main keyboard,
-        then answers the callback to remove the "loading" indicator.
+        Sends a short info message + main keyboard.
+        For real advice — send a photo of the street.
         """
         weather_type = callback.data.replace("weather_", "")
 
         if weather_type in WEATHER_INFO:
-            advice = await handle_weather_callback(callback)
+            info = WEATHER_INFO[weather_type]
             await callback.message.answer(
-                advice,
+                f"{info['emoji']} {info['name']}\n\n"
+                f"Отправь мне фото улицы с такой погодой, "
+                f"и я подберу что надеть!",
                 reply_markup=get_weather_keyboard(),
             )
         else:
             await callback.answer("Неизвестный тип погоды", show_alert=True)
 
-        # Remove the "typing" indicator on the callback
         await callback.answer()
 
     @router.message(F.photo)

@@ -3,13 +3,14 @@
 Flow:
   1. Receive photo from user
   2. Download image bytes from Telegram
-  3. Send to ViT classifier → get weather_type + confidence
-  4. Try LLM for a contextual recommendation, fallback to rule-based
-  5. Return clean text response (no markdown, single language)
+  3. Send to ViT classifier → full image analysis
+  4. Send analysis to Qwen LLM → unique contextual recommendation
+  5. Return clean text response to user
+
+NO rule-based fallbacks. If LLM fails, return an error message.
 """
 
 import logging
-import random
 
 from bot.services import llm_client as llm
 from bot.services import vit_classifier as classifier
@@ -25,64 +26,24 @@ WEATHER_EMOJI = {
     "night": "🌙",
 }
 
-# Varied rule-based recommendations
-_RULE_BASED_ADVICE = {
-    "sunny": [
-        "Ясная погода, отлично! Футболка, шорты или лёгкое платье — самое то. Не забудь солнцезащитные очки и крем от загара.",
-        "Солнечно и тепло — одевайся полегче. Кепка и очки спасут от яркого света, а лёгкая одежда не даст перегреться.",
-        "Отличный день! Худи не понадобится — хватит футболки и шорт. SPF обязателен.",
-    ],
-    "cloudy": [
-        "Небо затянуло облаками — лучше захвати лёгкую куртку. Зонт брось в сумку, мало ли.",
-        "Облачно и прохладно. Кофта или ветровка будут в самый раз. Если планируешь быть на улице долго — тёплый шарф не помешает.",
-        "Пасмурно, но без дождя. Одевайся в несколько слоёв — так можно регулировать температуру по ощущениям.",
-    ],
-    "rainy": [
-        "Дождь — без вариантов, нужна водонепроницаемая куртка и зонт. Обувь выбирай резиновую или непромокаемую.",
-        "Ливень! Ветровка с капюшоном, зонт-трость, сапоги. Никаких тканевых сумок — только рюкзак с водозащитой.",
-        "Мокро и сыро. Дождевик, резиновые ботинки, зонт. Избегай светлой одежды — пятна будут видны.",
-    ],
-    "snowy": [
-        "Снег и холод! Тёплая куртка, шапка, шарф, перчатки — полный комплект. Обувь с утеплением и нескользящей подошвой.",
-        "Зимняя погода — одевайся как капуста. Термобельё, свитер, пуховик. Шапку и варежки не забудь.",
-        "Морозно и снежно. Тёплые вещи обязательны, особенно шапка и шарф. Если идёшь далеко — термос с чаем спасёт.",
-    ],
-    "foggy": [
-        "Туман — сыро и зябко. Одевайся теплее, чем кажется. Водоотталкивающая куртка будет кстати.",
-        "Видимость низкая, влажность высокая. Флисовая кофта, ветровка, может пригодиться зонт.",
-        "Туманно и промозгло. Многослойная одежда — лучший вариант. Шарф защитит шею от холода.",
-    ],
-    "night": [
-        "Темно и, скорее всего, холодно. Тёплая куртка, шапка, шарф. Если светоотражающие элементы на одежде — ещё лучше.",
-        "Ночная прогулка — одевайся теплее днём. Куртка потеплее, перчатки, может термобельё. Светлая одежда для видимости.",
-        "Ночь — холодно. Пуховик, тёплые штаны, шапка. Если есть фонарик или светоотражатели — прикрепи к одежде.",
-    ],
-}
-
 
 def _clean_response(text: str) -> str:
-    """Remove markdown artifacts and ensure clean plain text.
-
-    Strips *, _, **, __, backticks, and extra whitespace.
-    """
-    # Remove markdown bold/italic
+    """Remove markdown artifacts and ensure clean plain text."""
     text = text.replace("**", "").replace("*", "")
     text = text.replace("__", "").replace("_", "")
-    # Remove backticks
     text = text.replace("`", "")
-    # Remove HTML-like tags that sometimes leak
     text = text.replace("<|", "").replace("|>", "")
-    # Collapse multiple spaces
     import re
     text = re.sub(r"\s+", " ", text)
     return text.strip()
 
 
 async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
-    """Process a photo and return a clothing recommendation.
+    """Process a photo and return a unique clothing recommendation from LLM.
 
-    Tries LLM first for contextual advice. Falls back to varied
-    rule-based recommendations if LLM is unavailable.
+    The classifier provides full visual analysis (weather, brightness,
+    color temperature, contrast, saturation). This context is sent to
+    LLM for a contextual, unique response every time.
 
     Args:
         file_bytes: Raw image bytes from Telegram.
@@ -90,58 +51,49 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
 
     Returns:
         Clean text recommendation (no markdown, Russian only).
-    """
-    result = None
 
+    Raises:
+        Returns error message if classifier or LLM fails.
+    """
     try:
-        # Step 1: Classify weather
+        # Step 1: Full image analysis from ViT
         result = await classifier.classify_image(file_bytes)
         weather_type = result["weather_type"]
         confidence = result["confidence"]
+        context = result["context_for_llm"]
 
-        # Step 2: Try LLM for contextual advice
+        # Add user message context if provided
+        if user_message:
+            context += f"\nUser also said: {user_message}"
+
+        # Step 2: LLM generates unique advice from full context
         try:
-            recommendation = await llm.get_clothing_recommendation(
-                weather_type, user_message
-            )
+            recommendation = await llm.get_clothing_recommendation(context)
             recommendation = _clean_response(recommendation)
         except llm.LLMError as e:
-            logger.warning("LLM unavailable, using fallback: %s", e)
-            options = _RULE_BASED_ADVICE.get(weather_type, [])
-            recommendation = random.choice(options) if options else (
-                "Одевайтесь по погоде и не забудьте зонтик!"
+            logger.error("LLM error: %s", e)
+            return (
+                "ИИ-сервис временно недоступен. "
+                "Попробуйте через пару минут или отправьте фото позже."
             )
 
-        # Step 3: Format response — emoji + clean text
+        # Step 3: Format response
         emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
-        analysis = result.get("analysis", {})
 
-        extra = ""
-        if result.get("is_night"):
-            extra = " Определено ночное время."
-        elif analysis.get("warmth", {}).get("is_warm"):
-            extra = " Заметны тёплые тона — возможно закат или рассвет."
-
-        return f"{emoji} Погода: {weather_type} (уверенность {confidence:.0%}).{extra}\n\n{recommendation}"
+        return f"{emoji} Определено: {weather_type} (уверенность {confidence:.0%})\n\n{recommendation}"
 
     except classifier.ClassifierError as e:
         logger.error("Classifier error: %s", e)
         return (
-            "Не удалось распознать погоду. Возможно, сервис классификации "
-            "временно недоступен. Попробуйте позже или опишите погоду текстом."
+            "Не удалось проанализировать фото. "
+            "Убедитесь что это фотография улицы и попробуйте снова."
         )
 
     except Exception as e:
         logger.error("Unexpected error processing photo: %s", e)
-        if result:
-            weather_type = result.get("weather_type", "unknown")
-            options = _RULE_BASED_ADVICE.get(weather_type, [])
-            advice = random.choice(options) if options else (
-                "Одевайтесь по погоде и не забудьте зонтик!"
-            )
-            return f"Обработка с ошибкой, но вот совет: {advice}"
         return (
-            "Произошла ошибка при обработке фото. Попробуйте ещё раз."
+            "Произошла ошибка при обработке фото. "
+            "Попробуйте ещё раз или отправьте другое фото."
         )
 
 

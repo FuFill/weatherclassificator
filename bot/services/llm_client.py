@@ -1,6 +1,7 @@
 """HTTP client for the Qwen LLM service (OpenAI-compatible API).
 
-Sends weather-based prompts and receives clothing recommendations.
+Generates unique, contextual clothing recommendations based on
+detailed image analysis from the ViT classifier.
 """
 
 import logging
@@ -12,12 +13,21 @@ from bot.config import settings
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = (
-    "You are a weather-aware clothing advisor. Given a weather type "
-    "(sunny, cloudy, rainy, snowy, foggy, night), provide a short, practical "
-    "clothing recommendation. Keep it under 3 sentences. Be friendly and specific. "
-    "Use emojis sparingly. Respond in the same language as the user's message. "
-    "If the weather is 'night', assume the person is going out at night and "
-    "recommend warm, visible clothing."
+    "You are a weather-aware clothing advisor. You will receive detailed "
+    "visual analysis of a street photo including weather classification, "
+    "brightness, color temperature, contrast, and saturation.\n\n"
+    "Your task: give a SHORT, PRACTICAL clothing recommendation based on "
+    "the visual evidence. Be specific and contextual — mention what you "
+    "observed from the photo analysis (e.g., 'looks like a bright sunny day', "
+    "'dark image suggests it is night time', 'low contrast means fog').\n\n"
+    "Rules:\n"
+    "- Keep it under 3 sentences\n"
+    "- Be friendly and specific\n"
+    "- Reference the visual evidence when possible\n"
+    "- ALWAYS respond in Russian\n"
+    "- Do NOT use markdown, bold, italics, or any special symbols like **, *, _, `\n"
+    "- Do NOT use HTML tags or code blocks\n"
+    "- Each response should be slightly different from the previous ones"
 )
 
 
@@ -25,24 +35,26 @@ class LLMError(Exception):
     """Raised when the LLM service is unreachable or returns an error."""
 
 
-async def get_clothing_recommendation(weather_type: str, user_message: str = "") -> str:
-    """Ask the LLM for a clothing recommendation based on weather.
+async def get_clothing_recommendation(image_context: str) -> str:
+    """Ask the LLM for a clothing recommendation based on full image analysis.
 
     Args:
-        weather_type: Classified weather (sunny / cloudy / rainy / snowy / foggy).
-        user_message: Optional additional context from the user.
+        image_context: Full analysis string from the classifier including
+                       weather type, confidence, brightness, colors, contrast, etc.
 
     Returns:
-        Clothing recommendation text.
+        Clothing recommendation text (Russian, clean, no markdown).
 
     Raises:
         LLMError: If the LLM service fails.
     """
     url = f"{settings.llm_api_base_url}/chat/completions"
 
-    user_content = f"The weather is: **{weather_type}**."
-    if user_message:
-        user_content += f"\n\nUser context: {user_message}"
+    user_content = (
+        f"Here is the visual analysis of the street photo:\n\n"
+        f"{image_context}\n\n"
+        f"What should I wear right now?"
+    )
 
     payload = {
         "model": settings.llm_api_model,
@@ -50,8 +62,9 @@ async def get_clothing_recommendation(weather_type: str, user_message: str = "")
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
         ],
-        "temperature": 0.7,
-        "max_tokens": 150,
+        "temperature": 0.9,
+        "max_tokens": 200,
+        "top_p": 0.95,
     }
 
     headers = {
@@ -67,7 +80,7 @@ async def get_clothing_recommendation(weather_type: str, user_message: str = "")
         data = response.json()
         reply = data["choices"][0]["message"]["content"].strip()
 
-        logger.info("LLM recommendation for %s: %s", weather_type, reply[:100])
+        logger.info("LLM recommendation: %s", reply[:100])
         return reply
 
     except httpx.ConnectError as e:
