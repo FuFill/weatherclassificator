@@ -285,6 +285,27 @@ class WeatherClassifier:
         contrast = _analyze_contrast(image)
         saturation = _analyze_saturation(image)
 
+        # Snow detection heuristic: high brightness + cool blue tones + low saturation
+        # Model often confuses snow with sunny/cloudy — boost snow probability
+        if (brightness["brightness_0_255"] > 180 and
+            color_temp["blueness_ratio"] > 0.1 and
+            color_temp["warmth_ratio"] < 0.1):
+            # Looks like snow: bright + cold + not warm
+            current_snow = all_scores.get("snowy", 0)
+            if current_snow < 0.3:
+                all_scores["snowy"] = round(current_snow + 0.25, 4)
+                # Reduce others proportionally
+                others_total = sum(v for k, v in all_scores.items() if k != "snowy")
+                if others_total > 0:
+                    for k in all_scores:
+                        if k != "snowy":
+                            all_scores[k] = round(all_scores[k] * (1 - 0.25) / max(others_total * (1 - 0.25), 0.01), 4)
+
+                # Recalculate weather_type if snow now wins
+                if all_scores["snowy"] > max(v for k, v in all_scores.items() if k != "snowy"):
+                    display_name = "snowy"
+                    confidence = all_scores["snowy"]
+
         # Night detection
         is_night = brightness["is_dark"]
         if is_night:
