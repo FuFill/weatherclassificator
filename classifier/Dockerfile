@@ -15,7 +15,14 @@ RUN uv pip install --system \
 # Install classifier deps
 RUN uv pip install --system \
     "fastapi>=0.115" "uvicorn[standard]>=0.34" \
-    "transformers>=4.48" "pillow>=11.0" "python-multipart>=0.0.18"
+    "transformers>=4.48" "pillow>=11.0" "python-multipart>=0.0.18" \
+    "onnxruntime>=1.20" "numpy>=2.0"
+
+# Export model to ONNX (runs once at build time)
+RUN mkdir -p /app/classifier/models && \
+    uv pip install --system "torch>=2.5" "onnx>=1.18" && \
+    python -c "from classifier.export_onnx import main; main()" 2>/dev/null || \
+    echo "ONNX export failed at build time, will use PyTorch fallback"
 
 # Copy classifier code
 COPY classifier/ classifier/

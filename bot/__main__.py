@@ -24,6 +24,8 @@ from bot.handlers.health import handle_health, handle_health_async
 from bot.handlers.help import handle_help
 from bot.handlers.photo_handler import handle_photo_async, handle_photo
 from bot.handlers.start import handle_start
+from bot.handlers.text_weather import detect_weather_from_text
+from bot.handlers.text_weather_handler import handle_text_weather_async
 from bot.handlers.weather_info import WEATHER_INFO
 from bot.services.keyboard import get_weather_keyboard
 
@@ -137,7 +139,29 @@ async def run_telegram_bot() -> None:
 
     @router.message(F.text)
     async def on_text(message: Message) -> None:
-        response = route_message(message.text)
+        """Handle text messages — check for weather descriptions."""
+        text = message.text.strip()
+
+        # First check if it's a command
+        if text.startswith("/"):
+            response = route_message(text)
+            await message.answer(response, reply_markup=get_weather_keyboard())
+            return
+
+        # Check if user is describing weather
+        weather_type = detect_weather_from_text(text)
+        if weather_type is not None:
+            result = await handle_text_weather_async(text)
+            await message.answer(result, reply_markup=get_weather_keyboard())
+            return
+
+        # Unknown text — fallback
+        response = (
+            "Я не понял запрос. Вот что я умею:\n\n"
+            "📸 Отправьте фото улицы — подберу одежду\n"
+            "🌤️ Опишите погоду: 'солнечно и жарко', 'идёт дождь', 'туман'\n"
+            "⌨️ Команды: /start, /help, /health, /weather"
+        )
         await message.answer(response, reply_markup=get_weather_keyboard())
 
     dp.include_router(router)
