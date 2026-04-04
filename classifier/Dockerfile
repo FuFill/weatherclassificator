@@ -7,18 +7,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/* && \
     pip install --no-cache-dir uv
 
-# Copy root workspace files for dependency resolution
-COPY pyproject.toml uv.lock ./
-COPY classifier/pyproject.toml classifier/pyproject.toml
+# Install CPU-only torch first (no CUDA, ~200MB instead of ~2GB)
+RUN uv pip install \
+    "torch>=2.5" "torchvision>=0.20" \
+    --index-url https://download.pytorch.org/whl/cpu
 
-# Sync dependencies — no dev deps, CPU-only torch
-RUN uv sync --frozen --no-dev && \
-    # Replace CUDA torch with CPU-only version
-    uv pip install torch==2.11.0+cpu torchvision==0.26.0+cpu \
-        --index-url https://download.pytorch.org/whl/cpu
+# Install classifier deps
+RUN uv pip install \
+    "fastapi>=0.115" "uvicorn[standard]>=0.34" \
+    "transformers>=4.48" "pillow>=11.0" "python-multipart>=0.0.18"
 
-# Copy the rest of the code
-COPY bot/ bot/
+# Copy classifier code
 COPY classifier/ classifier/
 
 # Expose the service port

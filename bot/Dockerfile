@@ -5,16 +5,12 @@ WORKDIR /app
 # Install uv
 RUN pip install --no-cache-dir uv
 
-# Copy root workspace files for dependency resolution
-COPY pyproject.toml uv.lock ./
-COPY bot/pyproject.toml bot/pyproject.toml
+# Install bot-only deps
+RUN uv pip install \
+    "aiogram>=3.20" "httpx>=0.28" "pydantic-settings>=2.12"
 
-# Sync dependencies — no dev deps
-RUN uv sync --frozen --no-dev
-
-# Copy the rest of the code
+# Copy bot code
 COPY bot/ bot/
-COPY classifier/ classifier/
 
 # Run the bot
 CMD ["uv", "run", "-m", "bot"]
