@@ -28,9 +28,11 @@ services:
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - CLASSIFIER_API_BASE_URL=http://classifier:8000
-      - LLM_API_BASE_URL=http://se-toolkit-lab-8-qwen-code-api-1:8080/v1
+      - LLM_API_BASE_URL=${LLM_API_BASE_URL}
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_API_MODEL=${LLM_API_MODEL:-qwen3-coder-plus}
+      - LLM_API_BASE_URL_2=${LLM_API_BASE_URL_2:-http://se-toolkit-lab-8-qwen-code-api-1:8080/v1}
+      - LLM_API_MODEL_2=${LLM_API_MODEL_2:-coder-model}
     depends_on:
       classifier:
         condition: service_healthy
