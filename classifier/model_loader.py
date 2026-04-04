@@ -1,21 +1,27 @@
-"""ViT model loader with full embedding extraction for LLM.
+"""Weather classifier with enhanced visual analysis.
 
-Instead of just returning a weather label, this extracts:
-  - Weather classification (5 classes + night detection)
-  - Visual embeddings: brightness, contrast, color temperature
-  - Per-class probability distribution
-  - Image characteristics that help LLM generate contextual advice
+Model: SiglipForImageClassification (prithivMLmods/Weather-Image-Classification)
+  - SigLIP2 base (google/siglip2-base-patch16-224), ~93M params
+  - 5 classes: cloudy/overcast, foggy/hazy, rain/storm, snow/frosty, sun/clear
 
-Model: SiglipForImageClassification (SigLIP2 base) — ~93M params.
-Labels: cloudy/overcast, foggy/hazy, rain/storm, snow/frosty, sun/clear
+Accuracy is enhanced through detailed visual analysis:
+  - Brightness analysis (night/day detection)
+  - Color temperature (warm/cool tones)
+  - Contrast level (clear/hazy)
+  - Saturation (vivid/muted)
+
+These features are sent to the LLM alongside the model prediction
+for more accurate, contextual clothing recommendations.
 """
 
-import colorsys
+import logging
 import statistics
 
 import torch
 from PIL import Image
 from transformers import AutoImageProcessor, SiglipForImageClassification
+
+logger = logging.getLogger(__name__)
 
 MODEL_NAME = "prithivMLmods/Weather-Image-Classification"
 
@@ -44,11 +50,7 @@ def _analyze_brightness(image: Image.Image) -> dict:
 
 
 def _analyze_color_temperature(image: Image.Image) -> dict:
-    """Analyze warm vs cool color balance.
-
-    High warmth → sunset/sunrise, golden hour
-    Low warmth → overcast, winter, shadow
-    """
+    """Analyze warm vs cool color balance."""
     rgb = image.convert("RGB")
     pixels = list(rgb.getdata())
     sampled = pixels[::10] if len(pixels) > 1000 else pixels
@@ -70,7 +72,6 @@ def _analyze_color_temperature(image: Image.Image) -> dict:
     warmth_ratio = warm_count / total if total > 0 else 0
     blueness_ratio = blue_count / total if total > 0 else 0
 
-    # Average color channels
     avg_r = statistics.mean([p[0] for p in sampled])
     avg_g = statistics.mean([p[1] for p in sampled])
     avg_b = statistics.mean([p[2] for p in sampled])
@@ -131,26 +132,21 @@ def _analyze_saturation(image: Image.Image) -> dict:
 
 
 class WeatherClassifier:
-    """ViT classifier with full image analysis for LLM context."""
+    """Weather classifier with detailed visual analysis for LLM context."""
 
-    def __init__(self, model_name: str = MODEL_NAME) -> None:
-        self.processor = AutoImageProcessor.from_pretrained(model_name)
-        self.model = SiglipForImageClassification.from_pretrained(model_name)
+    def __init__(self) -> None:
+        logger.info("Loading SigLIP2 model: %s", MODEL_NAME)
+        self.processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
+        self.model = SiglipForImageClassification.from_pretrained(MODEL_NAME)
         self.model.eval()
+        self.id2label = self.model.config.id2label
+        logger.info("Model loaded (%d classes).", len(self.id2label))
 
     def predict(self, image: Image.Image) -> dict:
-        """Full image analysis for LLM consumption.
+        """Classify weather with enhanced visual analysis.
 
-        Returns a dict with everything the LLM needs to generate
-        a contextual, unique clothing recommendation.
-
-        Structure:
-          - weather_type: sunny/cloudy/rainy/snowy/foggy/night
-          - confidence: 0-1
-          - is_night: bool
-          - all_scores: {weather: probability}
-          - visual_features: brightness, color, contrast, saturation
-          - context: human-readable summary for LLM prompt
+        Returns:
+            dict with weather_type, confidence, all_scores, visual_features, context_for_llm
         """
         # ML classification
         inputs = self.processor(images=image, return_tensors="pt")
@@ -164,16 +160,15 @@ class WeatherClassifier:
         predicted_idx = torch.argmax(probs, dim=-1).item()
         confidence = probs[0][predicted_idx].item()
 
-        id2label = self.model.config.id2label
-        raw_label = id2label.get(str(predicted_idx), id2label.get(predicted_idx, "unknown"))
+        raw_label = self.id2label.get(str(predicted_idx), self.id2label.get(predicted_idx, "unknown"))
         display_name = WEATHER_DISPLAY.get(raw_label, raw_label)
 
         # All probabilities
         all_scores = {}
         for i in range(len(probs[0])):
-            raw = id2label.get(str(i), id2label.get(i, f"class_{i}"))
+            raw = self.id2label.get(str(i), self.id2label.get(i, ""))
             disp = WEATHER_DISPLAY.get(raw, raw)
-            all_scores[disp] = round(probs[0][i].item(), 3)
+            all_scores[disp] = round(probs[0][i].item(), 4)
 
         # Visual analysis
         brightness = _analyze_brightness(image)
@@ -181,26 +176,24 @@ class WeatherClassifier:
         contrast = _analyze_contrast(image)
         saturation = _analyze_saturation(image)
 
-        # Night detection
+        # Night detection overrides model
         is_night = brightness["is_dark"]
         if is_night:
             display_name = "night"
             confidence = max(confidence, 0.8)
+            all_scores["night"] = round(confidence, 4)
 
-        # Build LLM-friendly context summary
+        # Build LLM context
         context_parts = []
         context_parts.append(f"Weather classification: {display_name}")
         context_parts.append(f"Confidence: {confidence:.0%}")
 
-        # Weather probabilities
-        if len(all_scores) > 1:
-            top3 = sorted(all_scores.items(), key=lambda x: x[1], reverse=True)[:3]
-            context_parts.append(
-                "Top weather possibilities: "
-                + ", ".join(f"{w}({p:.0%})" for w, p in top3)
-            )
+        top3 = sorted(all_scores.items(), key=lambda x: x[1], reverse=True)[:3]
+        context_parts.append(
+            "Top weather possibilities: "
+            + ", ".join(f"{w}({p:.0%})" for w, p in top3)
+        )
 
-        # Visual features
         context_parts.append(f"Brightness: {brightness['brightness_0_255']}/255")
         if brightness["is_very_bright"]:
             context_parts.append("Image is very bright — likely midday sun")
@@ -209,12 +202,12 @@ class WeatherClassifier:
 
         if color_temp["dominant_tone"] == "warm":
             context_parts.append(
-                f"Warm color tones detected (warmth: {color_temp['warmth_ratio']}) — "
+                f"Warm color tones (warmth: {color_temp['warmth_ratio']}) — "
                 "possibly sunrise, sunset, or warm lighting"
             )
         elif color_temp["dominant_tone"] == "cool":
             context_parts.append(
-                f"Cool color tones detected (blueness: {color_temp['blueness_ratio']}) — "
+                f"Cool color tones (blueness: {color_temp['blueness_ratio']}) — "
                 "possibly overcast, winter, or shade"
             )
 
@@ -231,7 +224,6 @@ class WeatherClassifier:
 
         return {
             "weather_type": display_name,
-            "raw_label": raw_label,
             "is_night": is_night,
             "confidence": round(confidence, 4),
             "all_scores": all_scores,
