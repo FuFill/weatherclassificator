@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(C:\\Users\\Matvey\\se-toolkit-lab-7/**)",
+      "Read(C:\\Users\\Matvey\\se-toolkit-lab-7\\backend/**)",
+      "Read(C:\\Users\\Matvey\\se-toolkit-lab-7\\bot/**)",
+      "Read(C:\\Users\\Matvey\\se-toolkit-lab-7\\frontend/**)",
+      "Read(C:\\Users\\Matvey\\se-toolkit-lab-7\\lab\\tasks\\required/**)",
+      "Bash(uv *)",
+      "Bash(move *)",
+      "Bash(timeout *)",
+      "Bash(curl *)",
+      "Bash(python *)",
+      "Bash(taskkill *)",
+      "Bash(del *)"
+    ]
+  },
+  "$version": 3
+}

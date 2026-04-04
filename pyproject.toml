@@ -1,0 +1,9 @@
+[tool.uv.workspace]
+members = ["bot", "classifier"]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "pytest>=8.0",
+    "ruff>=0.14",
+]

@@ -1,0 +1,42 @@
+services:
+  classifier:
+    build:
+      context: .
+      dockerfile: classifier/Dockerfile
+    restart: unless-stopped
+    networks:
+      - weatherwear-network
+    ports:
+      - "8001:8000"
+    volumes:
+      - model_cache:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  bot:
+    build:
+      context: .
+      dockerfile: bot/Dockerfile
+    restart: unless-stopped
+    networks:
+      - weatherwear-network
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - CLASSIFIER_API_BASE_URL=http://classifier:8000
+      - LLM_API_BASE_URL=${LLM_API_BASE_URL}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_API_MODEL=${LLM_API_MODEL:-qwen3-coder-plus}
+    depends_on:
+      classifier:
+        condition: service_healthy
+
+volumes:
+  model_cache:
+
+networks:
+  weatherwear-network:
+    driver: bridge

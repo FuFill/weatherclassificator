@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env.*.secret
+!.env.*.example
+
+# Git
+.git/
+.gitignore
+
+# Logs
+*.log
+
+# Test files
+test_*.jpg
+test_*.png

@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+dist/
+build/
+
+# Virtual environments
+.venv/
+.env/
+
+# Environment files (secrets)
+.env
+.env.*.secret
+!.env.*.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# uv
+uv.lock
+
+# Docker
+*.pid
+
+# Classifier model cache
+.cache/
+models/
+
+# Logs
+*.log
