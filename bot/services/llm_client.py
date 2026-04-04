@@ -77,7 +77,17 @@ async def _call_llm(base_url: str, api_key: str, model: str, context: str) -> st
         response = await client.post(url, json=payload, headers=headers)
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+
+        choices = data.get("choices", [])
+        if not choices:
+            raise ValueError(f"LLM returned empty choices response: {data}")
+
+        message = choices[0].get("message", {})
+        content = message.get("content", "")
+        if not content:
+            raise ValueError(f"LLM returned empty message: {data}")
+
+        return content.strip()
 
 
 async def get_clothing_recommendation(image_context: str) -> str:
