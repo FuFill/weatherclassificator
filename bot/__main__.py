@@ -10,14 +10,14 @@ import asyncio
 import sys
 from pathlib import Path
 
-# Add project root to sys.path so we can import from bot/ and classifier/
+# Add project root to sys.path so we can import from bot/
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from aiogram import Bot, Dispatcher, F, Router
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
+from aiogram.types import CallbackQuery, Message
 
 from bot.config import settings
 from bot.handlers.health import handle_health, handle_health_async
@@ -25,6 +25,7 @@ from bot.handlers.help import handle_help
 from bot.handlers.photo_handler import handle_photo_async, handle_photo
 from bot.handlers.start import handle_start
 from bot.handlers.weather_info import WEATHER_INFO
+from bot.services.keyboard import get_weather_keyboard, handle_weather_callback
 
 
 def parse_args() -> argparse.Namespace:
@@ -47,14 +48,14 @@ def route_message(text: str) -> str:
     if text == "/health":
         return handle_health()
     if text == "/weather":
-        lines = ["🌤️ **Типы погоды и рекомендации:**\n"]
+        lines = ["Все типы погоды и рекомендации:"]
         for wt, info in WEATHER_INFO.items():
-            lines.append(f"{info['emoji']} **{info['name']}** — {info['advice']}")
+            lines.append(f"{info['emoji']} {info['name']} — {info['advice']}")
         return "\n\n".join(lines)
     if text == "/photo" or text.startswith("/photo "):
         return handle_photo()
     return (
-        "🤔 Я пока не понимаю эту команду.\n\n"
+        "Я пока не понимаю эту команду.\n\n"
         "Используй /start для начала или отправь фото улицы, "
         "и я подскажу, что надеть!"
     )
@@ -79,24 +80,7 @@ async def run_telegram_bot() -> None:
     @router.message(Command("start"))
     async def cmd_start(message: Message) -> None:
         text = handle_start()
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(text="☀️ Солнечно", callback_data="weather_sunny"),
-                InlineKeyboardButton(text="☁️ Облачно", callback_data="weather_cloudy"),
-            ],
-            [
-                InlineKeyboardButton(text="🌧️ Дождь", callback_data="weather_rainy"),
-                InlineKeyboardButton(text="❄️ Снег", callback_data="weather_snowy"),
-            ],
-            [
-                InlineKeyboardButton(text="🌫️ Туман", callback_data="weather_foggy"),
-                InlineKeyboardButton(text="🌙 Ночь", callback_data="weather_night"),
-            ],
-            [
-                InlineKeyboardButton(text="📋 Все типы погоды", callback_data="weather_all"),
-            ],
-        ])
-        await message.answer(text, reply_markup=keyboard)
+        await message.answer(text, reply_markup=get_weather_keyboard())
 
     @router.message(Command("help"))
     async def cmd_help(message: Message) -> None:
@@ -110,28 +94,31 @@ async def run_telegram_bot() -> None:
     @router.message(Command("weather"))
     async def cmd_weather(message: Message) -> None:
         """Show all weather types and their advice."""
-        lines = ["🌤️ **Типы погоды и рекомендации:**\n"]
+        lines = ["Все типы погоды и рекомендации:"]
         for wt, info in WEATHER_INFO.items():
-            lines.append(f"{info['emoji']} **{info['name']}** — {info['advice']}")
+            lines.append(f"{info['emoji']} {info['name']} — {info['advice']}")
         await message.answer("\n\n".join(lines))
 
     @router.callback_query(F.data.startswith("weather_"))
     async def on_weather_callback(callback: CallbackQuery) -> None:
-        """Handle inline keyboard weather button clicks."""
+        """Handle inline keyboard weather button clicks.
+
+        Sends a new message with the advice + main keyboard,
+        then answers the callback to remove the "loading" indicator.
+        """
         weather_type = callback.data.replace("weather_", "")
 
-        if weather_type == "all":
-            lines = ["🌤️ **Все типы погоды:**\n"]
-            for wt, info in WEATHER_INFO.items():
-                lines.append(f"{info['emoji']} **{info['name']}** — {info['advice']}")
-            await callback.message.edit_text("\n\n".join(lines))
-        elif weather_type in WEATHER_INFO:
-            info = WEATHER_INFO[weather_type]
-            await callback.message.edit_text(
-                f"{info['emoji']} **{info['name']}**\n\n{info['advice']}"
+        if weather_type in WEATHER_INFO:
+            advice = await handle_weather_callback(callback)
+            await callback.message.answer(
+                advice,
+                reply_markup=get_weather_keyboard(),
             )
         else:
             await callback.answer("Неизвестный тип погоды", show_alert=True)
+
+        # Remove the "typing" indicator on the callback
+        await callback.answer()
 
     @router.message(F.photo)
     async def on_photo(message: Message) -> None:
@@ -145,12 +132,15 @@ async def run_telegram_bot() -> None:
         user_message = message.caption or ""
 
         result = await handle_photo_async(file_bytes, user_message)
-        await message.answer(result)
+        await message.answer(
+            result,
+            reply_markup=get_weather_keyboard(),
+        )
 
     @router.message(F.text)
     async def on_text(message: Message) -> None:
         response = route_message(message.text)
-        await message.answer(response)
+        await message.answer(response, reply_markup=get_weather_keyboard())
 
     dp.include_router(router)
 
