@@ -4,10 +4,9 @@ Flow:
   1. Receive photo from user
   2. Download image bytes from Telegram
   3. Send to ViT classifier → full image analysis
-  4. Send analysis to Qwen LLM → unique contextual recommendation
-  5. Return clean text response to user
-
-NO rule-based fallbacks. If LLM fails, return an error message.
+  4. Try Qwen LLM → unique contextual recommendation
+  5. If LLM fails, return classifier analysis summary
+  6. Return clean text response to user
 """
 
 import logging
@@ -26,6 +25,15 @@ WEATHER_EMOJI = {
     "night": "🌙",
 }
 
+WEATHER_ADVICE = {
+    "sunny": "Ясно и солнечно — легкая одежда, очки, SPF крем.",
+    "cloudy": "Облачно — возьмите легкую куртку или кофту.",
+    "rainy": "Дождь — водонепроницаемая куртка, зонт, непромокаемая обувь.",
+    "snowy": "Снег — теплая куртка, шапка, шарф, перчатки.",
+    "foggy": "Туман — одевайтесь теплее, зонт не помешает.",
+    "night": "Ночь — теплые слои, куртка, шапка.",
+}
+
 
 def _clean_response(text: str) -> str:
     """Remove markdown artifacts and ensure clean plain text."""
@@ -38,12 +46,37 @@ def _clean_response(text: str) -> str:
     return text.strip()
 
 
-async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
-    """Process a photo and return a unique clothing recommendation from LLM.
+def _build_fallback_response(result: dict) -> str:
+    """Build a response from classifier analysis when LLM is unavailable."""
+    weather_type = result["weather_type"]
+    confidence = result["confidence"]
+    emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
 
-    The classifier provides full visual analysis (weather, brightness,
-    color temperature, contrast, saturation). This context is sent to
-    LLM for a contextual, unique response every time.
+    features = result.get("visual_features", {})
+    brightness = features.get("brightness", {})
+    color = features.get("color_temperature", {})
+    contrast = features.get("contrast", {})
+
+    details = []
+    details.append(f"Яркость: {brightness.get('brightness_0_255', '?')}/255")
+    details.append(f"Тона: {color.get('dominant_tone', '?')}")
+    details.append(f"Контраст: {contrast.get('contrast_level', '?')}")
+
+    advice = WEATHER_ADVICE.get(
+        weather_type, "Одевайтесь по погоде!"
+    )
+
+    return (
+        f"{emoji} Определено: {weather_type} (уверенность {confidence:.0%})\n"
+        f"Детали: {', '.join(details)}\n\n"
+        f"{advice}"
+    )
+
+
+async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
+    """Process a photo and return a clothing recommendation from LLM.
+
+    Falls back to classifier-based analysis if LLM is unavailable.
 
     Args:
         file_bytes: Raw image bytes from Telegram.
@@ -51,9 +84,6 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
 
     Returns:
         Clean text recommendation (no markdown, Russian only).
-
-    Raises:
-        Returns error message if classifier or LLM fails.
     """
     try:
         # Step 1: Full image analysis from ViT
@@ -62,25 +92,19 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
         confidence = result["confidence"]
         context = result["context_for_llm"]
 
-        # Add user message context if provided
         if user_message:
             context += f"\nUser also said: {user_message}"
 
-        # Step 2: LLM generates unique advice from full context
+        # Step 2: Try LLM for unique advice
         try:
             recommendation = await llm.get_clothing_recommendation(context)
             recommendation = _clean_response(recommendation)
-        except llm.LLMError as e:
-            logger.error("LLM error: %s", e)
-            return (
-                "ИИ-сервис временно недоступен. "
-                "Попробуйте через пару минут или отправьте фото позже."
-            )
+            emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
+            return f"{emoji} Определено: {weather_type} (уверенность {confidence:.0%})\n\n{recommendation}"
 
-        # Step 3: Format response
-        emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
-
-        return f"{emoji} Определено: {weather_type} (уверенность {confidence:.0%})\n\n{recommendation}"
+        except llm.LLMError:
+            # Fallback to classifier analysis
+            return _build_fallback_response(result)
 
     except classifier.ClassifierError as e:
         logger.error("Classifier error: %s", e)

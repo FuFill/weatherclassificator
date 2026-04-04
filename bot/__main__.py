@@ -103,17 +103,14 @@ async def run_telegram_bot() -> None:
     async def on_weather_callback(callback: CallbackQuery) -> None:
         """Handle inline keyboard weather button clicks.
 
-        Sends a short info message + main keyboard.
-        For real advice — send a photo of the street.
+        Shows the same info as /weather but for the selected type.
         """
         weather_type = callback.data.replace("weather_", "")
 
         if weather_type in WEATHER_INFO:
             info = WEATHER_INFO[weather_type]
             await callback.message.answer(
-                f"{info['emoji']} {info['name']}\n\n"
-                f"Отправь мне фото улицы с такой погодой, "
-                f"и я подберу что надеть!",
+                f"{info['emoji']} {info['name']} — {info['advice']}",
                 reply_markup=get_weather_keyboard(),
             )
         else:
