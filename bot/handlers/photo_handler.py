@@ -176,7 +176,8 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
         )
 
     except Exception as e:
-        logger.error("Unexpected error processing photo: %s", e)
+        import traceback
+        logger.error("Unexpected error: %s", traceback.format_exc())
         return (
             "Произошла ошибка при обработке фото. "
             "Попробуйте ещё раз или отправьте другое фото."
