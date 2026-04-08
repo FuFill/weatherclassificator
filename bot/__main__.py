@@ -27,7 +27,7 @@ from bot.handlers.start import handle_start
 from bot.handlers.text_weather import detect_weather_from_text
 from bot.handlers.text_weather_handler import handle_text_weather_async
 from bot.handlers.weather_info import WEATHER_INFO
-from bot.services.keyboard import get_weather_keyboard
+from bot.services.keyboard import get_weather_keyboard, WEATHER_ADVICE
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,16 +50,16 @@ def route_message(text: str) -> str:
     if text == "/health":
         return handle_health()
     if text == "/weather":
-        lines = ["Все типы погоды и рекомендации:"]
+        lines = ["All weather types and advice:"]
         for wt, info in WEATHER_INFO.items():
             lines.append(f"{info['emoji']} {info['name']} — {info['advice']}")
         return "\n\n".join(lines)
     if text == "/photo" or text.startswith("/photo "):
         return handle_photo()
     return (
-        "Я пока не понимаю эту команду.\n\n"
-        "Используй /start для начала или отправь фото улицы, "
-        "и я подскажу, что надеть!"
+        "I don't understand that command yet.\n\n"
+        "Use /start to begin or send a street photo "
+        "and I'll tell you what to wear!"
     )
 
 
@@ -96,7 +96,7 @@ async def run_telegram_bot() -> None:
     @router.message(Command("weather"))
     async def cmd_weather(message: Message) -> None:
         """Show all weather types and their advice."""
-        lines = ["Все типы погоды и рекомендации:"]
+        lines = ["All weather types and advice:"]
         for wt, info in WEATHER_INFO.items():
             lines.append(f"{info['emoji']} {info['name']} — {info['advice']}")
         await message.answer("\n\n".join(lines))
@@ -105,32 +105,31 @@ async def run_telegram_bot() -> None:
     async def on_weather_callback(callback: CallbackQuery) -> None:
         """Handle inline keyboard weather button clicks.
 
-        Shows the same info as /weather but for the selected type.
+        Shows pre-written advice from WEATHER_ADVICE — not LLM-generated.
+        For AI recommendations, send a photo instead.
         """
         weather_type = callback.data.replace("weather_", "")
 
-        if weather_type in WEATHER_INFO:
-            info = WEATHER_INFO[weather_type]
+        if weather_type in WEATHER_ADVICE:
+            advice = WEATHER_ADVICE[weather_type]
             await callback.message.answer(
-                f"{info['emoji']} {info['name']} — {info['advice']}",
+                f"{advice}\n\n💡 For a personalized AI recommendation, "
+                f"send a photo of your street!",
                 reply_markup=get_weather_keyboard(),
             )
         else:
-            await callback.answer("Неизвестный тип погоды", show_alert=True)
+            await callback.answer("Unknown weather type", show_alert=True)
 
         await callback.answer()
 
     @router.message(F.photo)
     async def on_photo(message: Message) -> None:
         """Download photo from Telegram and process it."""
-        # Get the highest resolution photo
         photo = message.photo[-1]
         file_info = await message.bot.get_file(photo.file_id)
         file_bytes = await message.bot.download_file(file_info.file_path)
 
-        # Get any caption text
         user_message = message.caption or ""
-
         result = await handle_photo_async(file_bytes, user_message)
         await message.answer(
             result,
@@ -142,25 +141,22 @@ async def run_telegram_bot() -> None:
         """Handle text messages — check for weather descriptions."""
         text = message.text.strip()
 
-        # First check if it's a command
         if text.startswith("/"):
             response = route_message(text)
             await message.answer(response, reply_markup=get_weather_keyboard())
             return
 
-        # Check if user is describing weather
         weather_type = detect_weather_from_text(text)
         if weather_type is not None:
             result = await handle_text_weather_async(text)
             await message.answer(result, reply_markup=get_weather_keyboard())
             return
 
-        # Unknown text — fallback
         response = (
-            "Я не понял запрос. Вот что я умею:\n\n"
-            "📸 Отправьте фото улицы — подберу одежду\n"
-            "🌤️ Опишите погоду: 'солнечно и жарко', 'идёт дождь', 'туман'\n"
-            "⌨️ Команды: /start, /help, /health, /weather"
+            "I didn't understand that. Here's what I can do:\n\n"
+            "📸 Send a street photo — I'll recommend clothing\n"
+            "🌤️ Describe weather: 'sunny and hot', 'raining', 'foggy'\n"
+            "⌨️ Commands: /start, /help, /health, /weather"
         )
         await message.answer(response, reply_markup=get_weather_keyboard())
 

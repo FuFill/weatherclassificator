@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 async def handle_health_async() -> str:
     """Check the real status of all services via HTTP."""
-    parts = ["🏥 Статус сервисов:\n"]
+    parts = ["🏥 Service Status:\n"]
 
     # Check classifier
     try:
@@ -28,9 +28,9 @@ async def handle_health_async() -> str:
                 f"({settings.llm_api_model})"
             )
         except Exception:
-            parts.append(f"🧠 Qwen LLM: ❌ не отвечает")
+            parts.append(f"🧠 Qwen LLM: ❌ not responding")
     else:
-        parts.append("🧠 Qwen LLM: ⚠️ не настроен (нет LLM_API_BASE_URL)")
+        parts.append("🧠 Qwen LLM: ⚠️ not configured (no LLM_API_BASE_URL)")
 
     return "\n".join(parts)
 
@@ -41,8 +41,8 @@ def handle_health() -> str:
     llm_url = settings.llm_api_base_url
 
     return (
-        "🏥 Статус сервисов:\n\n"
+        "🏥 Service Status:\n\n"
         f"🔬 ViT Classifier: `{classifier_url}`\n"
-        f"🧠 Qwen LLM: `{llm_url or 'не настроен'}`\n\n"
-        "Сервисы готовы к работе ✅"
+        f"🧠 Qwen LLM: `{llm_url or 'not configured'}`\n\n"
+        "Services ready ✅"
     )

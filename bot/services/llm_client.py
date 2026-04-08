@@ -28,10 +28,12 @@ SYSTEM_PROMPT = (
     "- Write at least 4-6 sentences\n"
     "- Be VERY specific about clothing items\n"
     "- Reference the visual evidence from the analysis\n"
-    "- ALWAYS respond in Russian\n"
+    "- ALWAYS respond in English\n"
     "- Do NOT use markdown, bold, italics, or special symbols like **, *, _, `\n"
     "- Do NOT use HTML tags, code blocks, or lists with dashes\n"
-    "- Each response should feel unique and personalized to this specific photo"
+    "- Each response must feel unique and personalized — never repeat the same phrasing\n"
+    "- Vary your sentence structure and word choice between responses\n"
+    "- Sometimes mention specific clothing brands generically (e.g., 'a windbreaker like a North Face shell')\n"
 )
 
 
@@ -51,9 +53,11 @@ def _build_payload(model: str, context: str) -> dict:
                 f"What should I wear right now?"
             )},
         ],
-        "temperature": 0.9,
-        "max_tokens": 250,
+        "temperature": 1.2,
+        "max_tokens": 300,
         "top_p": 0.95,
+        "frequency_penalty": 0.3,
+        "presence_penalty": 0.3,
     }
 
 

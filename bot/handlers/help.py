@@ -4,10 +4,10 @@
 def handle_help() -> str:
     """Return a list of available commands."""
     return (
-        "📋 Доступные команды:\n\n"
-        "/start — Начать работу с ботом\n"
-        "/help — Показать эту справку\n"
-        "/health — Проверить статус сервисов\n"
-        "/weather — Показать советы по всем типам погоды\n\n"
-        "💡 Просто отправь фото улицы, и я подскажу, что надеть!"
+        "📋 Available commands:\n\n"
+        "/start — Get started with the bot\n"
+        "/help — Show this help message\n"
+        "/health — Check service status\n"
+        "/weather — Show clothing advice for all weather types\n\n"
+        "💡 Just send a photo of the street and I'll tell you what to wear!"
     )

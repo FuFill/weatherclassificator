@@ -4,33 +4,31 @@ When users describe weather in text instead of sending a photo,
 this module detects the weather type and provides clothing advice.
 """
 
-import re
-
-# Keywords that indicate each weather type in Russian and English
+# Keywords that indicate each weather type in English
 WEATHER_KEYWORDS = {
     "sunny": [
-        "солнц", "sun", "ясн", "жарк", "тепл", "свет",
-        "bright", "clear sky", "без облак",
+        "sun", "sunny", "clear", "bright", "hot", "warm",
+        "heat", "shine", "blue sky", "no clouds",
     ],
     "cloudy": [
-        "облачн", "пасмурн", "туч", "cloud", "overcast",
-        "хмур", "серо", "grey sky",
+        "cloud", "cloudy", "overcast", "grey", "gray",
+        "gloomy", "dull", "hazy sky",
     ],
     "rainy": [
-        "дожд", "rain", "ливн", "мокр", "капел",
-        "wet", "drizzle", "слякот", "гроза", "storm",
+        "rain", "raining", "wet", "drizzle", "pour",
+        "storm", "shower", "downpour", "thunder", "soaked",
     ],
     "snowy": [
-        "снег", "snow", "мороз", "холод", "зим",
-        "frost", "лед", "ice", "метель", "blizzard",
+        "snow", "snowing", "frost", "cold", "freezing",
+        "ice", "blizzard", "winter", "flaky", "slush",
     ],
     "foggy": [
-        "туман", "fog", "дымк", "мгл", "haze",
-        "мутн", "не видн", "плох вид",
+        "fog", "foggy", "mist", "haze", "hazy",
+        "murky", "can't see", "poor visibility",
     ],
     "night": [
-        "ноч", "night", "темн", "dark", "вечер",
-        "evening", "поздно", "late", "сумерк",
+        "night", "dark", "evening", "late", "midnight",
+        "after dark", "dim", "twilight", "dusk",
     ],
 }
 
@@ -39,7 +37,7 @@ def detect_weather_from_text(text: str) -> str | None:
     """Detect weather type from user's text description.
 
     Args:
-        text: User message in Russian or English.
+        text: User message in English.
 
     Returns:
         Weather type string (sunny/cloudy/rainy/snowy/foggy/night) or None.
@@ -55,5 +53,4 @@ def detect_weather_from_text(text: str) -> str | None:
     if not scores:
         return None
 
-    # Return the type with highest keyword matches
     return max(scores, key=scores.get)

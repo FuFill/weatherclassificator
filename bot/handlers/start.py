@@ -2,15 +2,10 @@
 
 
 def handle_start() -> str:
-    """Return a welcome message for the /start command.
-
-    This handler has no Telegram dependency — it just takes input
-    and returns text. Can be called from --test mode, unit tests,
-    or the Telegram dispatcher.
-    """
+    """Return a welcome message for the /start command."""
     return (
-        "👋 Привет! Я WeatherWear — твой помощник по выбору одежды.\n\n"
-        "Отправь мне фото улицы, и я подскажу, что надеть, "
-        "учитывая погоду!\n\n"
-        "Используй /help, чтобы узнать больше."
+        "👋 Hi! I'm WeatherWear — your personal clothing advisor.\n\n"
+        "Send me a photo of the street, and I'll tell you what to wear "
+        "based on the weather!\n\n"
+        "Use /help to learn more."
     )

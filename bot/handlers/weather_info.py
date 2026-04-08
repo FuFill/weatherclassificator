@@ -4,32 +4,32 @@
 WEATHER_INFO = {
     "sunny": {
         "emoji": "☀️",
-        "name": "Солнечно",
-        "advice": "Лёгкая одежда, SPF, солнцезащитные очки.",
+        "name": "Sunny",
+        "advice": "Light clothing, SPF, sunglasses.",
     },
     "cloudy": {
         "emoji": "☁️",
-        "name": "Облачно",
-        "advice": "Лёгкая куртка или кофта. Возьмите зонт.",
+        "name": "Cloudy",
+        "advice": "Light jacket or sweater. Bring an umbrella.",
     },
     "rainy": {
         "emoji": "🌧️",
-        "name": "Дождь",
-        "advice": "Водонепроницаемая куртка, зонт, резиновые сапоги.",
+        "name": "Rainy",
+        "advice": "Waterproof jacket, umbrella, rubber boots.",
     },
     "snowy": {
         "emoji": "❄️",
-        "name": "Снег",
-        "advice": "Тёплая куртка, шапка, шарф, перчатки.",
+        "name": "Snowy",
+        "advice": "Warm jacket, hat, scarf, gloves.",
     },
     "foggy": {
         "emoji": "🌫️",
-        "name": "Туман",
-        "advice": "Одевайтесь теплее, видимость низкая. Зонт не помешает.",
+        "name": "Foggy",
+        "advice": "Dress warmer, visibility is low. An umbrella helps.",
     },
     "night": {
         "emoji": "🌙",
-        "name": "Ночь",
-        "advice": "Тёплые слои, куртка потеплее. Шапка и перчатки.",
+        "name": "Night",
+        "advice": "Warm layers, heavier jacket. Hat and gloves.",
     },
 }
