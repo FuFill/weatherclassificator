@@ -27,12 +27,16 @@ WEATHER_EMOJI = {
 
 
 def _clean_response(text: str) -> str:
-    """Remove markdown artifacts and ensure clean plain text."""
+    """Remove markdown artifacts and ensure clean plain text with proper newlines."""
     text = text.replace("**", "").replace("*", "")
     text = text.replace("__", "").replace("_", "")
     text = text.replace("`", "")
     text = text.replace("<|", "").replace("|>", "")
+    # Convert literal "\n" strings to real newlines
+    text = text.replace("\\n", "\n")
+    # Replace dash list markers with bullet points
     import re
+    text = re.sub(r"(^|\n)- ", r"\n• ", text)
     # Replace multiple spaces (but NOT newlines) with single space
     text = re.sub(r" {2,}", " ", text)
     # Remove trailing whitespace on each line
