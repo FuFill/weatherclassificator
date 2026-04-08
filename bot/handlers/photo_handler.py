@@ -40,16 +40,19 @@ def _clean_response(text: str) -> str:
 async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
     """Process a photo and return a UNIQUE clothing recommendation from LLM.
 
-    The classifier provides full visual analysis. This context is sent to
-    LLM which generates a fresh, non-deterministic response every time.
-    No pre-written fallbacks — if LLM fails, return an error message.
+    Output format:
+      🌧️ Weather: rainy (confidence 87%)
+      Photo analysis: Dim lighting — early morning or evening.
+
+      Clothing recommendation:
+      [LLM-generated advice]
 
     Args:
         file_bytes: Raw image bytes from Telegram.
         user_message: Optional text sent with the photo.
 
     Returns:
-        Clean text recommendation (no markdown, English only).
+        Formatted text recommendation (no markdown, English only).
     """
     try:
         result = await classifier.classify_image(file_bytes)
@@ -60,18 +63,60 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
         if user_message:
             context += f"\nUser also said: {user_message}"
 
-        # LLM generates unique response — no cached/pre-written answers
+        # Build photo analysis summary from visual features
+        features = result.get("visual_features", {})
+        brightness = features.get("brightness", {})
+        color_temp = features.get("color_temperature", {})
+        contrast = features.get("contrast", {})
+        saturation = features.get("saturation", {})
+
+        analysis_parts = []
+        b_val = brightness.get("brightness_0_255", 0)
+        if b_val > 200:
+            analysis_parts.append("Very bright lighting — likely midday sun")
+        elif b_val > 120:
+            analysis_parts.append("Normal daylight illumination")
+        elif b_val > 45:
+            analysis_parts.append("Dim lighting — early morning or evening")
+        else:
+            analysis_parts.append("Dark image — nighttime or heavy overcast")
+
+        if color_temp.get("dominant_tone") == "warm":
+            analysis_parts.append("warm color tones detected")
+        elif color_temp.get("dominant_tone") == "cool":
+            analysis_parts.append("cool color tones detected")
+
+        c_level = contrast.get("contrast_level", "medium")
+        if c_level in ("very_low", "low"):
+            analysis_parts.append("low contrast — fog, haze, or mist")
+        elif c_level == "high":
+            analysis_parts.append("high contrast — clear visibility")
+
+        if saturation.get("is_vivid"):
+            analysis_parts.append("vivid colors — good visibility")
+        elif saturation.get("is_muted"):
+            analysis_parts.append("muted colors — dull lighting or heavy cloud")
+
+        analysis_str = ". ".join(analysis_parts).capitalize() + "."
+
+        # LLM generates unique recommendation — no cached/pre-written answers
         try:
             recommendation = await llm.get_clothing_recommendation(context)
             recommendation = _clean_response(recommendation)
             emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
-            return f"{emoji} Weather: {weather_type} (confidence {confidence:.0%})\n\n{recommendation}"
+            return (
+                f"{emoji} Weather: {weather_type} (confidence {confidence:.0%})\n"
+                f"Photo analysis: {analysis_str}\n\n"
+                f"Clothing recommendation:\n{recommendation}"
+            )
 
         except llm.LLMError as e:
             logger.error("LLM failed: %s", e)
             return (
-                f"AI clothing recommendation is temporarily unavailable. "
-                f"The weather looks {weather_type} though — dress accordingly!"
+                f"{emoji} Weather: {weather_type} (confidence {confidence:.0%})\n"
+                f"Photo analysis: {analysis_str}\n\n"
+                f"AI recommendation is temporarily unavailable. "
+                f"Dress for {weather_type} weather!"
             )
 
     except classifier.ClassifierError as e:
