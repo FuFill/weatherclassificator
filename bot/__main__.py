@@ -125,6 +125,9 @@ async def run_telegram_bot() -> None:
     @router.message(F.photo)
     async def on_photo(message: Message) -> None:
         """Download photo from Telegram and process it."""
+        # React immediately so user knows we're working on it
+        await message.react("👀")
+
         photo = message.photo[-1]
         file_info = await message.bot.get_file(photo.file_id)
         file_bytes = await message.bot.download_file(file_info.file_path)
