@@ -33,8 +33,11 @@ def _clean_response(text: str) -> str:
     text = text.replace("`", "")
     text = text.replace("<|", "").replace("|>", "")
     import re
-    text = re.sub(r"\s+", " ", text)
-    return text.strip()
+    # Replace multiple spaces (but NOT newlines) with single space
+    text = re.sub(r" {2,}", " ", text)
+    # Remove trailing whitespace on each line
+    lines = [line.rstrip() for line in text.split("\n")]
+    return "\n".join(lines).strip()
 
 
 async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
