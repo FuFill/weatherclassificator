@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
     networks:
       - weatherwear-network
-      - lms-network
+      - qwen-code-oai-proxy_default
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - CLASSIFIER_API_BASE_URL=http://classifier:8000
@@ -44,4 +44,6 @@ networks:
   weatherwear-network:
     driver: bridge
   lms-network:
+    external: true
+  qwen-code-oai-proxy_default:
     external: true
