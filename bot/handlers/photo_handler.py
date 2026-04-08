@@ -100,10 +100,10 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
         analysis_str = ". ".join(analysis_parts).capitalize() + "."
 
         # LLM generates unique recommendation — no cached/pre-written answers
+        emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
         try:
             recommendation = await llm.get_clothing_recommendation(context)
             recommendation = _clean_response(recommendation)
-            emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
             return (
                 f"{emoji} Weather: {weather_type} (confidence {confidence:.0%})\n"
                 f"Photo analysis: {analysis_str}\n\n"
