@@ -106,13 +106,10 @@ async def handle_photo_async(file_bytes: bytes, user_message: str = "") -> str:
 
         analysis_str = ". ".join(analysis_parts).capitalize() + "."
 
-        # LLM generates unique recommendation with VISION — sees the photo directly
+        # LLM generates unique recommendation from detailed visual context
         emoji = WEATHER_EMOJI.get(weather_type, "🌤️")
         try:
-            recommendation = await llm.get_clothing_recommendation(
-                context,
-                image_bytes=file_bytes,  # Send raw image for vision model
-            )
+            recommendation = await llm.get_clothing_recommendation(context)
             recommendation = _clean_response(recommendation)
             return (
                 f"{emoji} Weather: {weather_type} (confidence {confidence:.0%})\n"
