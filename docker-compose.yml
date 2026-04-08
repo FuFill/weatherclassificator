@@ -31,7 +31,7 @@ services:
       - LLM_API_BASE_URL=${LLM_API_BASE_URL}
       - LLM_API_KEY=${LLM_API_KEY}
       - LLM_API_MODEL=${LLM_API_MODEL:-qwen3-coder-plus}
-      - LLM_API_BASE_URL_2=${LLM_API_BASE_URL_2:-http://se-toolkit-lab-8-qwen-code-api-1:8080/v1}
+      - LLM_API_BASE_URL_2=${LLM_API_BASE_URL_2:-http://qwen-code-oai-proxy-qwen-proxy-1:8080/v1}
       - LLM_API_MODEL_2=${LLM_API_MODEL_2:-coder-model}
     depends_on:
       classifier:
