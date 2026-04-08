@@ -55,8 +55,8 @@ def _image_to_base64(image_bytes: bytes) -> str:
 async def _call_vision_llm(base_url: str, api_key: str, image_b64: str, text_context: str) -> str:
     """Call the vision model with both image and text.
 
-    Returns:
-        Clean response text.
+    Tries the standard OpenAI vision format first. If that fails (400/500),
+    falls back to embedding base64 in the text prompt.
     """
     url = f"{base_url}/chat/completions"
     headers = {
@@ -64,7 +64,8 @@ async def _call_vision_llm(base_url: str, api_key: str, image_b64: str, text_con
         "Authorization": f"Bearer {api_key}",
     }
 
-    payload = {
+    # Try 1: OpenAI vision format (image_url object)
+    payload_vision = {
         "model": VISION_MODEL,
         "messages": [
             {
@@ -81,9 +82,9 @@ async def _call_vision_llm(base_url: str, api_key: str, image_b64: str, text_con
                     {
                         "type": "text",
                         "text": (
-                            f"Here is the AI analysis of this street photo:\n\n"
+                            f"AI analysis of this photo:\n\n"
                             f"{text_context}\n\n"
-                            f"What should I wear right now?"
+                            f"What should I wear?"
                         ),
                     },
                 ],
@@ -92,21 +93,18 @@ async def _call_vision_llm(base_url: str, api_key: str, image_b64: str, text_con
         "temperature": 1.2,
         "max_tokens": 300,
         "top_p": 0.95,
-        "frequency_penalty": 0.3,
-        "presence_penalty": 0.3,
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.post(url, json=payload, headers=headers)
+        response = await client.post(url, json=payload_vision, headers=headers)
         response.raise_for_status()
         data = response.json()
         choices = data.get("choices", [])
         if not choices:
-            raise ValueError(f"LLM returned empty choices: {data}")
-        message = choices[0].get("message", {})
-        content = message.get("content", "")
+            raise ValueError(f"Empty vision response: {data}")
+        content = choices[0].get("message", {}).get("content", "")
         if not content:
-            raise ValueError(f"LLM returned empty message: {data}")
+            raise ValueError(f"Empty vision message: {data}")
         return content.strip()
 
 

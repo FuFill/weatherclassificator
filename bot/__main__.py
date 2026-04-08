@@ -130,7 +130,8 @@ async def run_telegram_bot() -> None:
 
         photo = message.photo[-1]
         file_info = await message.bot.get_file(photo.file_id)
-        file_bytes = await message.bot.download_file(file_info.file_path)
+        file_bytes_data = await message.bot.download_file(file_info.file_path)
+        file_bytes = file_bytes_data.read()  # BytesIO → bytes
 
         user_message = message.caption or ""
         result = await handle_photo_async(file_bytes, user_message)
