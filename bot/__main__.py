@@ -16,8 +16,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from aiogram import Bot, Dispatcher, F, Router
+from aiogram.types import Message, CallbackQuery, ReactionTypeEmoji
 from aiogram.filters import Command
-from aiogram.types import CallbackQuery, Message
 
 from bot.config import settings
 from bot.handlers.health import handle_health, handle_health_async
@@ -126,7 +126,14 @@ async def run_telegram_bot() -> None:
     async def on_photo(message: Message) -> None:
         """Download photo from Telegram and process it."""
         # React immediately so user knows we're working on it
-        await message.react("👀")
+        try:
+            await message.bot.set_message_reaction(
+                chat_id=message.chat.id,
+                message_id=message.message_id,
+                reaction=[ReactionTypeEmoji(emoji="👀")],
+            )
+        except Exception:
+            pass  # Reaction not critical
 
         photo = message.photo[-1]
         file_info = await message.bot.get_file(photo.file_id)
