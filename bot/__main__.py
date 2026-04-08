@@ -126,7 +126,7 @@ async def run_telegram_bot() -> None:
     async def on_photo(message: Message) -> None:
         """Download photo from Telegram and process it."""
         # Send a loading reply so user knows we're working
-        loading_msg = await message.reply("👀 Analyzing your photo...")
+        loading_msg = await message.reply("👀")
 
         photo = message.photo[-1]
         file_info = await message.bot.get_file(photo.file_id)
