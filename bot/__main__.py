@@ -125,15 +125,8 @@ async def run_telegram_bot() -> None:
     @router.message(F.photo)
     async def on_photo(message: Message) -> None:
         """Download photo from Telegram and process it."""
-        # React immediately so user knows we're working on it
-        try:
-            await message.bot.set_message_reaction(
-                chat_id=message.chat.id,
-                message_id=message.message_id,
-                reaction=[ReactionTypeEmoji(emoji="👀")],
-            )
-        except Exception:
-            pass  # Reaction not critical
+        # Send a loading reply so user knows we're working
+        loading_msg = await message.reply("👀 Analyzing your photo...")
 
         photo = message.photo[-1]
         file_info = await message.bot.get_file(photo.file_id)
@@ -141,6 +134,13 @@ async def run_telegram_bot() -> None:
 
         user_message = message.caption or ""
         result = await handle_photo_async(file_bytes, user_message)
+
+        # Delete the loading message
+        try:
+            await loading_msg.delete()
+        except Exception:
+            pass
+
         await message.answer(
             result,
             reply_markup=get_weather_keyboard(),
