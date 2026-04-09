@@ -1,373 +1,217 @@
-# WeatherWear — Telegram Bot for Clothing Recommendations
+# WeatherWear
 
-## Product Brief
+AI-powered Telegram bot that analyzes street photos and tells you exactly what to wear.
 
-> Telegram-бот, который принимает фото улицы, классифицирует погоду (sunny, cloudy, rainy, snowy, foggy) и даёт рекомендации по одежде через LLM-агент.
+## Demo
 
-**Целевая аудитория:** Люди, которые не могут определиться, что надеть. Быстрый совет по фото улицы без сохранения изображений.
+<p align="center">
+  <img src="https://img.shields.io/badge/Classifier-SigLIP2%20(93M%20params)-blue" alt="Classifier"/>
+  <img src="https://img.shields.io/badge/LLM-Qwen%20(qwen3--coder--plus)-green" alt="LLM"/>
+  <img src="https://img.shields.io/badge/TTA-3%20augmentations-orange" alt="TTA"/>
+  <img src="https://img.shields.io/badge/Inference-ONNX%20Runtime-purple" alt="ONNX"/>
+</p>
 
-## Architecture
-
-```
-┌──────────────┐      ┌──────────────────────────┐      ┌──────────────────────┐
-│  Telegram    │─────▶│  WeatherWear Bot         │      │  Qwen LLM API        │
-│  User        │◀────│  (aiogram)               │─────▶│  (qwen3-coder-plus)  │
-└──────────────┘      │         │                │      └──────────────────────┘
-                      │         │                │
-                      │         ▼                │
-                      │  ┌───────────────────┐   │
-                      │  │ SigLIP2 Classif.  │   │
-                      │  │  (prithivMLmods/  │   │
-                      │  │   Weather-Image-  │   │
-                      │  │   Classification) │   │
-                      │  └───────────────────┘   │
-                      └──────────────────────────┘
-```
-
-## Requirements
-
-### P0 — Must Have
-
-1. **Приём фото:** Бот принимает фотографию через Telegram
-2. **Классификация:** ViT-модель классифицирует погоду в один из 6 типов: `sunny`, `cloudy`, `rainy`, `snowy`, `foggy`, `night`
-3. **Рекомендация:** LLM (Qwen) получает метку погоды и возвращает краткий совет по одежде
-4. **Тестовый режим:** `cd bot && uv run bot.py --test "<command>"` работает без Telegram
-5. **Error handling:** Падение модели/LLM — дружелюбное сообщение, не креш
-
-### P1 — Should Have
-
-1. **Inline-кнопки:** Быстрый выбор действий
-2. **История:** Контекст диалога (multi-turn)
-3. **Кэширование:** Повторные запросы к LLM не тратят токены
-
-### P2 — Nice to Have
-
-1. **Rich formatting:** Красивое форматирование ответа (эмодзи, таблицы)
-2. **Мульти-фото:** Анализ нескольких фото подряд
-3. **Геолокация:** Учёт местоположения пользователя
-
-### P3 — Deployment
-
-1. Бот контейнеризован (Dockerfile)
-2. Docker Compose: bot + ViT-сервис
-3. Развёрнут на VM
-4. README документирует деплой
-
----
-
-## Implementation Plan
-
-### Phase 1: Scaffold & Project Structure
-
-**Цель:** Создать рабочую структуру проекта с тестовым режимом.
+### How it works
 
 ```
-weatherwear/
-├── bot/                          # Telegram-бот
-│   ├── bot.py                    # Entry point (Telegram + --test mode)
-│   ├── config.py                 # Загрузка env-переменных
-│   ├── pyproject.toml            # Зависимости бота
-│   ├── Dockerfile                # Контейнеризация
-│   ├── handlers/                 # Обработчики команд
-│   │   ├── __init__.py
-│   │   ├── start.py              # /start — приветствие
-│   │   ├── help.py               # /help — список команд
-│   │   └── photo_handler.py      # Обработка фото
-│   └── services/                 # Сервисы (API-клиенты)
-│       ├── __init__.py
-│       ├── vit_classifier.py     # Клиент к ViT-сервису
-│       └── llm_client.py         # Клиент к Qwen LLM
-├── classifier/                   # ViT-сервис классификации
-│   ├── app.py                    # FastAPI-сервис
-│   ├── model_loader.py           # Загрузка модели с HuggingFace
-│   ├── requirements.txt          # Зависимости (transformers, torch, pillow)
-│   ├── Dockerfile                # Контейнеризация
-│   └── tests/
-│       └── test_classifier.py
-├── docker-compose.yml            # Оркестрация
-├── .env.bot.example              # Пример переменных для бота
-├── .env.docker.secret            # Секреты для деплоя
-└── README.md                     # Документация
+User sends photo → 👀 "Analyzing..." → Weather classification → AI clothing advice
 ```
 
-**Deliverables:**
+**Example output:**
 
-- `bot/bot.py` — entry point с `--test` режимом
-- `bot/handlers/` — заглушки обработчиков
-- `bot/config.py` — загрузка env
-- `bot/pyproject.toml` — зависимости (aiogram, httpx, pydantic-settings)
-- `bot/PLAN.md` — план разработки
+```
+🌧️ Weather: rainy (confidence 87%)
+Photo analysis: Dim lighting — early morning or evening. Cool color tones detected.
+Low contrast — fog, haze, or mist. Muted colors — dull lighting or heavy cloud.
 
-**Verify:**
+Clothing recommendation:
+
+What I see: overcast street with cool blue tones and low visibility.
+
+Wear this:
+- Top: waterproof windbreaker with hood
+- Bottom: quick-dry synthetic trousers
+- Footwear: rubber rain boots
+- Accessories: large stick umbrella
+- Layers: fleece sweater underneath
+
+Tips: put your phone in a waterproof case, swap fabric bag for water-resistant backpack, take spare socks.
+```
+
+> **Screenshots:** After deployment, send a photo to the bot in Telegram and screenshot the response. Add it here as `docs/screenshot-1.png`.
+
+## Product Context
+
+### End Users
+
+People who look out the window and can't decide what to wear. Commuters, students, anyone who needs fast, practical clothing advice from a photo — without storing their images anywhere.
+
+### Problem
+
+You look outside — is it sunny enough for shorts? Is that fog or just overcast? Do you need a jacket? Checking a weather app tells you the temperature but not what it actually looks like on your street right now.
+
+### Solution
+
+Take a photo of your street. WeatherWear analyzes it with a vision model (SigLIP2, 93M parameters) using Test-Time Augmentation for accuracy, then an LLM generates a specific clothing recommendation — exact items (top, bottom, footwear, accessories), not vague "dress warmly" advice.
+
+## Features
+
+### Implemented ✅
+
+| Feature | Description |
+|---------|-------------|
+| **Photo analysis** | Send any street photo → get weather classification (sunny, cloudy, rainy, snowy, foggy, night) |
+| **AI clothing advice** | LLM generates unique, detailed recommendation every time (specific items, not generic) |
+| **TTA (Test-Time Augmentation)** | 3 augmentations per image for higher accuracy (original, flip, center crop) |
+| **ONNX Runtime** | 2-3x faster CPU inference compared to PyTorch |
+| **Visual analysis** | Brightness, color temperature, contrast, saturation — all sent to LLM as context |
+| **Snow detection heuristic** | Fixes model confusion between snow and sunny |
+| **Text weather input** | Describe weather in text ("raining heavily") → get advice without photo |
+| **Inline keyboard** | Quick weather-type buttons with pre-written advice |
+| **Loading indicator** | Bot replies with 👀 immediately when photo is received |
+| **High randomness** | Temperature 1.2 + frequency/presence penalty — every response unique |
+| **Fallback handling** | If LLM is down, bot still responds with classifier analysis |
+| **Docker deployment** | bot + classifier as separate containers, health checks, auto-restart |
+
+### Not Yet Implemented 🔲
+
+| Feature | Description |
+|---------|-------------|
+| User history | Per-user request log with past photos and recommendations |
+| Analytics dashboard | Weather distribution, request volume over time |
+| Geolocation + real weather API | OpenWeatherMap integration as second opinion |
+| Multi-language support | Russian, Spanish, etc. |
+| Outfit image generation | DALL-E / Stable Diffusion generates example outfit |
+| Budget-aware suggestions | User sets budget, bot suggests specific items from shops |
+
+## Usage
+
+### In Telegram
+
+1. Find the bot on Telegram (via its username from @BotFather)
+2. Send `/start` to see the welcome message
+3. Send a **photo** of the street
+4. Wait for the 👀 reaction → receive weather classification + clothing advice
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Welcome message + inline keyboard |
+| `/help` | List of all commands |
+| `/health` | Service status (classifier + LLM) |
+| `/weather` | Quick reference for all weather types |
+
+### Text Input
+
+You can also describe weather in text:
+- "it's raining and windy" → rainy advice
+- "snowy and freezing" → snowy advice
+- "foggy morning" → foggy advice
+
+## Deployment
+
+### Requirements
+
+- **OS:** Ubuntu 24.04 (or any Linux with Docker)
+- **Docker** 24+ and **Docker Compose** v2+
+- **RAM:** 2 GB minimum (classifier uses ~800MB)
+- **Disk:** 2 GB for model cache
+- **Network:** Outbound internet (downloads model from HuggingFace on first start)
+
+### What's Included
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `classifier` | 8001:8000 | SigLIP2 model with ONNX Runtime, TTA |
+| `bot` | — | Telegram bot (aiogram), connects to classifier + LLM |
+
+### Step-by-Step
+
+#### 1. Clone the repository
 
 ```bash
-cd bot && uv run bot.py --test "/start"    # → welcome message
-cd bot && uv run bot.py --test "/help"     # → список команд
+git clone https://github.com/<your-username>/se-toolkit-hackathon.git
+cd se-toolkit-hackathon
 ```
 
----
-
-### Phase 2: ViT Classifier Service
-
-**Цель:** FastAPI-сервис, который классифицирует фото погоды.
-
-**Технологии:** `transformers`, `torch`, `Pillow`, `FastAPI`, `uvicorn`
-
-**Модель:** [prithivMLmods/Weather-Image-Classification](https://huggingface.co/prithivMLmods/Weather-Image-Classification) — SigLIP2-модель (93M параметров), 5 классов.
-
-**Эндпоинты:**
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | `/classify` | Принимает фото (multipart/form-data), возвращает `{weather_type, confidence}` |
-| GET | `/health` | Проверка работоспособности |
-
-**Deliverables:**
-
-- `classifier/app.py` — FastAPI-приложение
-- `classifier/model_loader.py` — загрузка модели при старте
-- `classifier/Dockerfile` — контейнер с PyTorch + transformers
-- `classifier/requirements.txt` — зависимости
-
-**Verify:**
+#### 2. Create environment file
 
 ```bash
-cd classifier && uvicorn app:app --reload
-curl -X POST http://localhost:8001/classify -F "photo=@sunny_street.jpg"
-# → {"weather_type": "sunny", "confidence": 0.92}
-```
-
----
-
-### Phase 3: Bot + Classifier Integration
-
-**Цель:** Бот принимает фото, отправляет в classifier, получает метку погоды.
-
-**Deliverables:**
-
-- `bot/services/vit_classifier.py` — HTTP-клиент к classifier-сервису
-- `bot/handlers/photo_handler.py` — логика обработки фото
-- `bot/bot.py` — обновлённый entry point
-
-**Поток данных:**
-
-```
-User отправляет фото → bot.py → photo_handler → vit_classifier → POST /classify → {weather_type}
-```
-
-**Verify:**
-
-```bash
-cd bot && uv run bot.py --test "/classify_test sunny.jpg"
-# → "Detected: sunny (confidence: 0.92)"
-```
-
----
-
-### Phase 4: LLM Agent Integration (Qwen)
-
-**Цель:** Бот отправляет метку погоды в Qwen LLM и получает рекомендацию по одежде.
-
-**LLM Config:**
-
-- `LLM_API_BASE_URL=http://10.93.25.110:42005/v1`
-- `LLM_API_MODEL=qwen3-coder-plus`
-- OpenAI-совместимый API
-
-**System Prompt:**
-
-```
-You are a weather-aware clothing advisor. Given a weather type (sunny/cloudy/rainy/snowy/foggy/night),
-provide a short, practical clothing recommendation. Keep it under 3 sentences.
-Be friendly and specific.
-```
-
-**Tool для LLM:**
-
-| Tool | Описание |
-|------|----------|
-| `get_clothing_recommendation(weather_type)` | Возвращает совет по одежде для данной погоды |
-
-**Deliverables:**
-
-- `bot/services/llm_client.py` — OpenAI-совместимый клиент к Qwen
-- `bot/handlers/photo_handler.py` — обновлённый: фото → classifier → LLM → ответ
-- `bot/config.py` — LLM credentials из env
-
-**Поток данных:**
-
-```
-Фото → ViT → {weather_type: "rainy"}
-       → LLM System: "You are a clothing advisor..."
-       → LLM User: "Weather: rainy"
-       → LLM Response: "It's raining! Wear a waterproof jacket..."
-       → Bot → User
-```
-
-**Verify:**
-
-```bash
-cd bot && uv run bot.py --test "/photo rainy_test.jpg"
-# → "🌧️ Raining today! I'd recommend: waterproof jacket, umbrella, waterproof boots..."
-```
-
----
-
-### Phase 5: Docker Compose & Deployment
-
-**Цель:** Контейнеризация и деплой на VM.
-
-**docker-compose.yml** — два сервиса:
-
-| Сервис | Контекст | Порт | Описание |
-|--------|----------|------|----------|
-| `classifier` | `.` | 8001:8000 | SigLIP2 модель, healthcheck |
-| `bot` | `.` | — | Telegram-бот, зависит от classifier |
-
-**Deploy на VM:**
-
-```bash
-# 1. Клонировать репозиторий на VM
-git clone <repo-url> ~/weatherwear
-cd ~/weatherwear
-
-# 2. Создать .env.docker.secret
 cp .env.docker.secret.example .env.docker.secret
-# Заполнить BOT_TOKEN, LLM_API_BASE_URL, LLM_API_KEY
+nano .env.docker.secret
+```
 
-# 3. Запустить
+Fill in the values:
+
+```env
+# Telegram Bot — get token from @BotFather
+BOT_TOKEN=your-bot-token-here
+
+# LLM (Qwen) — your LLM API endpoint
+LLM_API_BASE_URL=http://your-llm-host:8080/v1
+LLM_API_KEY=your-api-key-here
+LLM_API_MODEL=qwen3-coder-plus
+
+# Secondary LLM (fallback, optional)
+LLM_API_BASE_URL_2=http://your-llm-host:8080/v1
+LLM_API_MODEL_2=coder-model
+```
+
+#### 3. Build and start
+
+```bash
 docker compose --env-file .env.docker.secret up --build -d
+```
 
-# 4. Проверить
+First run downloads the SigLIP2 model (~350 MB) from HuggingFace. This takes 30-60 seconds.
+
+#### 4. Verify
+
+```bash
+# Check all services are running
 docker compose --env-file .env.docker.secret ps
-docker compose --env-file .env.docker.secret logs classifier --tail 20
-docker compose --env-file .env.docker.secret logs bot --tail 20
+
+# Check classifier is healthy (model loaded)
+docker compose --env-file .env.docker.secret logs classifier --tail 10
+
+# Check bot is polling
+docker compose --env-file .env.docker.secret logs bot --tail 10
+
+# Test classifier directly
+curl http://localhost:8001/health
 ```
 
-**Verify:**
+#### 5. Test in Telegram
 
-- `/start` — welcome message
-- Отправить фото улицы → рекомендация по одежде
-- `/health` — статус classifier + LLM
-- `curl http://localhost:8001/health` — classifier снаружи
+1. Open Telegram and find your bot
+2. Send `/start` — you should see the welcome message with inline keyboard
+3. Send a photo of the street
+4. You should see 👀 reaction, then the weather classification + clothing advice
 
----
-
-### Phase 6: Polish & Documentation
-
-**Цель:** Финальная полировка и документация.
-
-**Deliverables:**
-
-- Inline-кнопки для быстрых действий
-- Красивое форматирование ответов
-- Обновлённый README с полным описанием
-- Troubleshooting секция
-
----
-
-## Environment Variables
-
-### .env.bot.example
-
-```env
-# Telegram Bot
-BOT_TOKEN=<bot-token-from-BotFather>
-
-# ViT Classifier
-CLASSIFIER_API_BASE_URL=http://localhost:8001
-
-# LLM (Qwen)
-LLM_API_BASE_URL=http://<vm-ip>:42005/v1
-LLM_API_KEY=<qwen-api-key>
-LLM_API_MODEL=qwen3-coder-plus
-```
-
-### .env.docker.secret
-
-```env
-# Telegram Bot
-BOT_TOKEN=<your-bot-token>
-
-# ViT Classifier (Docker networking)
-CLASSIFIER_API_BASE_URL=http://classifier:8000
-
-# LLM (Qwen) — используем host.docker.internal если LLM на хосте
-LLM_API_BASE_URL=http://10.93.25.110:42005/v1
-LLM_API_KEY=sk-8774a89b791548be9cbe1113e78ab2ef
-LLM_API_MODEL=qwen3-coder-plus
-```
-
----
-
-## Local Development
-
-### Run Classifier
-
-```bash
-# Install dependencies
-uv sync
-
-# Start the classifier service
-uv run uvicorn classifier.app:app --host 127.0.0.1 --port 8001
-
-# Test (in another terminal)
-curl http://127.0.0.1:8001/health
-curl -X POST http://127.0.0.1:8001/classify -F "photo=@your_photo.jpg"
-```
-
-> **Note:** At first start, the model (~350MB) downloads from HuggingFace. This takes 30-60 seconds.
-
-### Run Bot in Test Mode
-
-```bash
-uv run -m bot --test "/start"
-uv run -m bot --test "/help"
-uv run -m bot --test "/health"
-```
-
-### Run Bot in Telegram Mode
-
-```bash
-# Make sure .env.bot.secret has BOT_TOKEN
-uv run -m bot
-```
-
----
-
-## Troubleshooting
+### Troubleshooting
 
 | Symptom | Solution |
 |---------|----------|
-| Classifier не отвечает | Проверить `docker compose logs classifier` — модель загружается при первом старте (~1 мин) |
-| LLM запросы фейлятся | Убедиться что `LLM_API_BASE_URL` доступен из контейнера |
-| Бот не подключается | Проверить `BOT_TOKEN` в `.env.docker.secret` |
-| Out of memory на VM | ViT-модель требует ~2GB RAM; уменьшить batch size или использовать CPU-only |
+| Bot container exits immediately | Check logs: `docker compose logs bot` — usually missing `BOT_TOKEN` |
+| Classifier returns 503 | Model is still loading. Wait 60s and retry. |
+| LLM fails | Ensure `LLM_API_BASE_URL` is reachable from inside Docker container |
+| Out of memory | Classifier needs ~800MB RAM. Ensure VM has at least 2GB. |
+| Model download fails | Check internet connection. First start downloads ~350MB from HuggingFace. |
 
----
+### Stopping
 
-## Weather Types & Clothing Mapping
+```bash
+docker compose --env-file .env.docker.secret down
+```
 
-| Model Label | Display Name | Описание | Пример рекомендации |
-|-------------|-------------|----------|---------------------|
-| `sun/clear` | `sunny` | Ясно, солнечно | Лёгкая одежда, SPF, sunglasses |
-| `cloudy/overcast` | `cloudy` | Облачно, пасмурно | Лёгкая куртка, может быть зонт |
-| `rain/storm` | `rainy` | Дождь, гроза | Waterproof jacket, umbrella, boots |
-| `snow/frosty` | `snowy` | Снег, мороз | Тёплая куртка, шапка, перчатки |
-| `foggy/hazy` | `foggy` | Туман, дымка | Видимая одежда, слои |
+### Updating
 
-> **Note:** Модель не определяет `night`. Ночные фото обычно классифицируются как `cloudy` или `foggy`.
-> При необходимости можно добавить проверку экспозиции фото для определения ночи.
+```bash
+git pull
+docker compose --env-file .env.docker.secret up --build -d
+```
 
----
+## License
 
-## Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| Bot | Python 3.14, aiogram 3.x, httpx, pydantic-settings |
-| Classifier | FastAPI, SigLIP2 (google/siglip2-base), PyTorch, Pillow |
-| Model | prithivMLmods/Weather-Image-Classification (93M params, 5 classes) |
-| LLM | Qwen (qwen3-coder-plus) via OpenAI-compatible API |
-| Deploy | Docker, Docker Compose |
-| Dev Tools | uv, ruff, pyright, pytest |
+MIT — see [LICENSE](LICENSE).
