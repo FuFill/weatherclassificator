@@ -2,6 +2,8 @@
 
 AI-powered Telegram bot that analyzes street photos and tells you exactly what to wear.
 
+**Author:** Trifonov Matvei, DSAI-03, ma.trifonov@innopolis.university
+
 ## Demo
 
 <p align="center">
